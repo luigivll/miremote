@@ -69,6 +69,35 @@ jobs:
         with:
           name: MiRemote-apk
           path: MiRemote.apk
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Smoke test en emulador (instala, lanza, busca crash)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r MiRemote.apk
+            adb logcat -c
+            adb shell am start -W -n com.yangvii.remote_mobile/.MainActivity
+            sleep 12
+            adb logcat -d > logcat.txt
+            if grep -q "FATAL EXCEPTION" logcat.txt; then
+              echo "La app crasheó al arrancar:"
+              grep -A25 "FATAL EXCEPTION" logcat.txt | head -25 | while IFS= read -r l; do echo "::error::$l"; done
+              exit 1
+            fi
+            if ! grep -q "Displayed com.yangvii.remote_mobile/.MainActivity" logcat.txt; then
+              echo "La actividad no llegó a mostrarse:"
+              tail -30 logcat.txt | while IFS= read -r l; do echo "::error::$l"; done
+              exit 1
+            fi
+            echo "APK smoke OK: la app instala, arranca y muestra la pantalla principal sin crash."
 
   release:
     needs: [windows-exe, android-apk]

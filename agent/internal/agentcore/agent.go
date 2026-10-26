@@ -47,10 +47,8 @@ func New(dataDir string) (*Agent, error) {
 	cfg.DeviceID = id.DeviceID
 	_ = cfg.Save(dataDir)
 
-	if cfg.SignalingURL == "" {
-		return nil, fmt.Errorf("signaling_url no configurado en %s", dataDir)
-	}
-
+	// La identidad no necesita servidor; el signaling_url solo se exige al
+	// emparejar o arrancar (ver requireSignaling).
 	a := &Agent{
 		cfg:     cfg,
 		id:      id,
@@ -60,16 +58,31 @@ func New(dataDir string) (*Agent, error) {
 	return a, nil
 }
 
+// requireSignaling comprueba que haya servidor configurado para las acciones
+// que lo necesitan (emparejar, arrancar).
+func (a *Agent) requireSignaling() error {
+	if a.cfg.SignalingURL == "" {
+		return fmt.Errorf("signaling_url no configurado en %s", a.dataDir)
+	}
+	return nil
+}
+
 func (a *Agent) DeviceID() string    { return a.id.DeviceID }
 func (a *Agent) Identity() *identity.Identity { return a.id }
 
 // Register registra la identidad del host en la señalización (idempotente).
 func (a *Agent) Register(ctx context.Context) error {
+	if err := a.requireSignaling(); err != nil {
+		return err
+	}
 	return a.sig.Register(ctx, "MiRemote Host")
 }
 
 // Start registra el host, abre el WebSocket y queda a la espera de ofertas.
 func (a *Agent) Start(ctx context.Context) error {
+	if err := a.requireSignaling(); err != nil {
+		return err
+	}
 	if err := a.sig.Register(ctx, "MiRemote Host"); err != nil {
 		return fmt.Errorf("registro: %w", err)
 	}

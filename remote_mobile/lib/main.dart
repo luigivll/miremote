@@ -11,8 +11,54 @@ import 'src/webrtc/remote_session.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final identity = IdentityStore();
-  await identity.load();
+  String? initError;
+  try {
+    await identity.load();
+  } catch (e) {
+    // Un fallo del almacén seguro no debe tumbar el arranque: se muestra una
+    // pantalla de error en vez de un cierre en blanco.
+    initError = '$e';
+  }
+  if (initError != null) {
+    runApp(_StartupError(message: initError));
+    return;
+  }
   runApp(MiRemoteApp(identity: identity, peerStore: PeerStore()));
+}
+
+class _StartupError extends StatelessWidget {
+  final String message;
+  const _StartupError({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
+      home: Scaffold(
+        backgroundColor: const Color(0xFF0E0F13),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.amber, size: 48),
+                const SizedBox(height: 16),
+                const Text('No se pudo iniciar el almacén seguro',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontSize: 16)),
+                const SizedBox(height: 8),
+                Text(message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MiRemoteApp extends StatelessWidget {
