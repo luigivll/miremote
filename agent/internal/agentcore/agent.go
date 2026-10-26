@@ -28,9 +28,13 @@ type Agent struct {
 	sig *signaling.Client
 	ws  *signaling.WSConn
 
-	mu      sync.Mutex
-	session *mrwebrtc.Session
-	iceSrv  []pion.ICEServer
+	mu          sync.Mutex
+	session     *mrwebrtc.Session
+	iceSrv      []pion.ICEServer
+	running     bool
+	runCancel   context.CancelFunc
+	curInv      *signaling.Invitation
+	sessionPeer string
 
 	dataDir string
 }
@@ -56,6 +60,12 @@ func New(dataDir string) (*Agent, error) {
 		dataDir: dataDir,
 	}
 	return a, nil
+}
+
+// rebuildClientLocked recrea el cliente de señalización con la config actual.
+// Debe llamarse con a.mu tomado.
+func (a *Agent) rebuildClientLocked() {
+	a.sig = signaling.NewClient(a.cfg.SignalingURL, a.cfg.SignalingWSURL, a.id)
 }
 
 // requireSignaling comprueba que haya servidor configurado para las acciones
@@ -169,6 +179,7 @@ func (a *Agent) handleOffer(from string, data json.RawMessage) {
 		OnClosed: func() {
 			a.mu.Lock()
 			a.session = nil
+			a.sessionPeer = ""
 			a.mu.Unlock()
 		},
 	})
@@ -183,6 +194,7 @@ func (a *Agent) handleOffer(from string, data json.RawMessage) {
 		a.session.Close()
 	}
 	a.session = sess
+	a.sessionPeer = from
 	a.mu.Unlock()
 
 	var offer pion.SessionDescription

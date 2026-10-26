@@ -29,16 +29,17 @@ import (
 )
 
 func main() {
-	// Sin argumentos (p.ej. doble clic en Windows): menú interactivo, para que
-	// la ventana no se abra y se cierre al instante.
+	// Sin argumentos (p.ej. doble clic en Windows): interfaz gráfica.
 	if len(os.Args) < 2 {
-		interactiveMenu()
+		runUI()
 		return
 	}
 	cmd := os.Args[1]
 	os.Args = append(os.Args[:1], os.Args[2:]...)
 
 	switch cmd {
+	case "ui":
+		runUI()
 	case "setup":
 		cmdSetup()
 	case "pair":

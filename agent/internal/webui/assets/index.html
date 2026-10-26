@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiRemote — Agente de PC</title>
+<style>
+  :root{
+    --bg:#0a0b0f; --panel:#131521; --panel2:#0e0f17; --fg:#e8e9f0; --muted:#8b8fa3;
+    --line:#262838; --accent:#6c5ce7; --accent-soft:rgba(108,92,231,.16);
+    --ok:#28c76f; --warn:#ffb547; --danger:#ff6b6b;
+    --display:"Segoe UI",system-ui,sans-serif; --mono:"Cascadia Code","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1000px 500px at 85% -10%,rgba(108,92,231,.12),transparent 60%),var(--bg);
+    color:var(--fg); font-family:var(--display); line-height:1.5;
+    -webkit-font-smoothing:antialiased; padding:28px 20px 48px;
+  }
+  .wrap{max-width:720px;margin:0 auto}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#6c5ce7,#4f8cff);
+    display:grid;place-items:center;flex:none;box-shadow:0 8px 20px -8px rgba(108,92,231,.7)}
+  .logo svg{width:22px;height:22px}
+  h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:12.5px;font-family:var(--mono)}
+  .pill{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+    padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted)}
+  .pill i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .pill.on{color:var(--ok);border-color:rgba(40,199,111,.4)} .pill.on i{background:var(--ok)}
+  .pill.live{color:var(--warn);border-color:rgba(255,181,71,.4)} .pill.live i{background:var(--warn);
+    animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,181,71,.5)}70%{box-shadow:0 0 0 7px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px}
+  .card h2{font-size:14px;margin:0 0 4px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .card h2 .num{width:22px;height:22px;border-radius:7px;background:var(--accent-soft);color:#b7adf5;
+    font-size:12px;font-family:var(--mono);display:grid;place-items:center}
+  .card p.hint{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  input[type=text]{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    color:var(--fg);font:inherit;font-size:14px;padding:11px 13px;outline:none}
+  input[type=text]:focus{border-color:var(--accent)}
+  button{font:inherit;font-weight:600;font-size:14px;border:0;border-radius:10px;padding:11px 18px;cursor:pointer;
+    background:var(--accent);color:#fff;transition:filter .15s,opacity .15s}
+  button:hover{filter:brightness(1.08)} button:disabled{opacity:.5;cursor:not-allowed}
+  button.ghost{background:var(--panel2);color:var(--fg);border:1px solid var(--line)}
+  button.ok{background:var(--ok)} button.danger{background:var(--danger)}
+  .muted{color:var(--muted)} .mono{font-family:var(--mono)}
+  .small{font-size:12px}
+
+  .qrbox{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:6px}
+  .qrbox img{width:200px;height:200px;border-radius:12px;background:#fff;padding:10px;flex:none}
+  .qrbox .side{min-width:180px;flex:1}
+  .waiting{display:inline-flex;align-items:center;gap:9px;color:var(--warn);font-size:13px;font-weight:600}
+  .spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--warn);animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .claim{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+  .claim .nm{font-weight:600} .claim .fp{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all;margin-top:4px}
+
+  .banner{display:flex;align-items:center;gap:12px;background:rgba(40,199,111,.08);border:1px solid rgba(40,199,111,.4);
+    border-radius:12px;padding:13px 15px;margin-top:12px}
+  .banner .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);animation:pulse 1.6s infinite;flex:none}
+  .banner b{color:#fff}
+  .chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:10.5px;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:#b7adf5}
+  .hidden{display:none}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:11px 16px;font-size:13px;box-shadow:0 14px 40px -14px rgba(0,0,0,.8);opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+  .err{color:var(--danger)}
+  footer{color:var(--muted);font-size:11.5px;margin-top:22px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><rect x="2.5" y="4" width="19" height="12" rx="1.5"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></div>
+    <div>
+      <h1>MiRemote — Agente de PC</h1>
+      <div class="sub" id="deviceId">cargando…</div>
+    </div>
+    <span class="pill" id="pill"><i></i><span id="pillText">—</span></span>
+  </header>
+
+  <!-- 1. Servidor -->
+  <div class="card">
+    <h2><span class="num">1</span> Servidor de señalización</h2>
+    <p class="hint">La dirección del servidor que coordina la conexión con el móvil.</p>
+    <div class="row">
+      <input type="text" id="server" placeholder="https://tu-servidor.com" autocomplete="off">
+      <button id="saveServer">Guardar</button>
+    </div>
+  </div>
+
+  <!-- 2. Emparejar -->
+  <div class="card">
+    <h2><span class="num">2</span> Emparejar con el móvil</h2>
+    <p class="hint">Genera un código QR y escanéalo con la app MiRemote del móvil.</p>
+    <button id="pairBtn">Generar código QR</button>
+    <div id="pairArea" class="hidden">
+      <div class="qrbox">
+        <img id="qrImg" alt="Código QR de emparejamiento">
+        <div class="side">
+          <div class="waiting" id="pairWaiting"><span class="spinner"></span> Esperando a que el móvil lo escanee…</div>
+          <p class="muted small" id="pairExpire" style="margin-top:10px"></p>
+        </div>
+      </div>
+      <div class="claim hidden" id="claimBox">
+        <div class="nm" id="claimName">—</div>
+        <div class="muted small" id="claimPlat">—</div>
+        <div class="fp" id="claimFp">—</div>
+        <div class="row" style="margin-top:12px">
+          <button class="ok" id="approveBtn">Aprobar dispositivo</button>
+          <button class="ghost" id="rejectBtn">Rechazar</button>
+        </div>
+      </div>
+      <p id="pairDone" class="hidden" style="color:var(--ok);font-weight:600;margin-top:12px">✓ Emparejamiento completado.</p>
+    </div>
+  </div>
+
+  <!-- 3. Agente -->
+  <div class="card">
+    <h2><span class="num">3</span> Agente</h2>
+    <p class="hint">Inícialo para atender las conexiones remotas del móvil.</p>
+    <div class="row">
+      <button id="startBtn">Iniciar agente</button>
+      <button id="stopBtn" class="danger hidden">Detener</button>
+    </div>
+    <div class="banner hidden" id="sessionBanner">
+      <span class="dot"></span>
+      <div>
+        <div>Sesión remota activa: <b id="sessionPeer">—</b></div>
+        <div class="chips"><span class="chip">screen.view</span><span class="chip">input.control</span></div>
+      </div>
+      <button class="danger" id="stopSessionBtn" style="margin-left:auto">Detener sesión</button>
+    </div>
+  </div>
+
+  <footer>MiRemote · la sesión remota siempre muestra un indicador visible mientras está activa.</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let pairing = false, pairTimer = null;
+
+async function api(path, method='GET', body=null){
+  const opt = {method, headers:{}};
+  if(body){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  const txt = await r.text();
+  let data = {}; try{ data = txt ? JSON.parse(txt) : {}; }catch(e){}
+  if(!r.ok) throw new Error(data.error || ('HTTP '+r.status));
+  return data;
+}
+function toast(msg, isErr){
+  const t=$('#toast'); t.textContent=msg; t.classList.toggle('err',!!isErr); t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+async function refreshStatus(){
+  try{
+    const s = await api('/api/status');
+    $('#deviceId').textContent = s.device_id;
+    if(!$('#server').matches(':focus')) $('#server').value = s.server || '';
+    const pill=$('#pill'), pt=$('#pillText');
+    pill.className='pill';
+    if(s.session_active){ pill.classList.add('live'); pt.textContent='Sesión activa'; }
+    else if(s.running){ pill.classList.add('on'); pt.textContent='En marcha'; }
+    else { pt.textContent = s.configured ? 'Listo' : 'Sin configurar'; }
+    $('#startBtn').classList.toggle('hidden', s.running);
+    $('#stopBtn').classList.toggle('hidden', !s.running);
+    $('#sessionBanner').classList.toggle('hidden', !s.session_active);
+    if(s.session_active) $('#sessionPeer').textContent = s.session_peer || 'móvil';
+  }catch(e){ /* servidor local aún no listo */ }
+}
+
+$('#saveServer').onclick = async () => {
+  try{ await api('/api/config','POST',{server:$('#server').value}); toast('Servidor guardado'); refreshStatus(); }
+  catch(e){ toast(e.message,true); }
+};
+
+$('#pairBtn').onclick = async () => {
+  $('#pairBtn').disabled = true;
+  try{
+    const r = await api('/api/pair/start','POST');
+    $('#qrImg').src = r.qr;
+    $('#pairExpire').textContent = 'Caduca: ' + new Date(r.expires_at).toLocaleTimeString();
+    $('#pairArea').classList.remove('hidden');
+    $('#claimBox').classList.add('hidden');
+    $('#pairDone').classList.add('hidden');
+    $('#pairWaiting').classList.remove('hidden');
+    pairing = true; pollPair();
+  }catch(e){ toast(e.message,true); $('#pairBtn').disabled=false; }
+};
+
+async function pollPair(){
+  if(!pairing) return;
+  try{
+    const st = await api('/api/pair/status');
+    if(st.status==='claimed' && st.mobile){
+      $('#pairWaiting').classList.add('hidden');
+      $('#claimBox').classList.remove('hidden');
+      $('#claimName').textContent = st.mobile.name || 'Dispositivo móvil';
+      $('#claimPlat').textContent = st.mobile.platform || '';
+      $('#claimFp').textContent = st.mobile.fingerprint || '';
+    } else if(st.status==='expired' || st.status==='rejected'){
+      pairing=false; $('#pairWaiting').innerHTML='<span class="err">El código caducó. Genera otro.</span>';
+      $('#pairBtn').disabled=false; return;
+    }
+  }catch(e){}
+  pairTimer = setTimeout(pollPair, 1500);
+}
+
+$('#approveBtn').onclick = async () => decide(true);
+$('#rejectBtn').onclick  = async () => decide(false);
+async function decide(ok){
+  try{
+    await api('/api/pair/decision','POST',{approve:ok});
+    pairing=false; if(pairTimer) clearTimeout(pairTimer);
+    $('#claimBox').classList.add('hidden');
+    if(ok){ $('#pairDone').classList.remove('hidden'); toast('Dispositivo aprobado'); }
+    else { $('#pairArea').classList.add('hidden'); toast('Rechazado'); }
+    $('#pairBtn').disabled=false;
+  }catch(e){ toast(e.message,true); }
+}
+
+$('#startBtn').onclick = async () => {
+  $('#startBtn').disabled=true;
+  try{ await api('/api/agent/start','POST'); toast('Agente en marcha'); }
+  catch(e){ toast(e.message,true); }
+  $('#startBtn').disabled=false; refreshStatus();
+};
+$('#stopBtn').onclick = async () => { try{ await api('/api/agent/stop','POST'); toast('Agente detenido'); }catch(e){} refreshStatus(); };
+$('#stopSessionBtn').onclick = async () => { try{ await api('/api/session/stop','POST'); toast('Sesión detenida'); }catch(e){} refreshStatus(); };
+
+refreshStatus();
+setInterval(refreshStatus, 2000);
+</script>
+</body>
+</html>
