@@ -1,0 +1,26 @@
+name: remote_mobile
+description: Cliente móvil MiRemote — control remoto del PC por WebRTC.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_webrtc: ^0.12.5      # WebRTC en el móvil
+  mobile_scanner: ^5.2.3       # escaneo del QR de emparejamiento
+  flutter_secure_storage: ^9.2.2 # almacén seguro del SO (Keystore/Keychain)
+  cryptography: ^2.7.0         # Ed25519 para la identidad del dispositivo
+  crypto: ^3.0.5               # sha256 para derivar device_id
+  http: ^1.2.2                 # API HTTPS de señalización
+  web_socket_channel: ^3.0.1   # WebSocket de señalización
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

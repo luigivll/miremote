@@ -1,0 +1,23 @@
+# Binarios y artefactos de build
+/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Datos locales / estado
+*.db
+*.json.tmp
+pairing_qr.png
+/signaling/*.json
+!/wol-relay/wol-relay.example.json
+
+# Go
+/**/*.test
+
+# Flutter (se generan con `flutter create .`)
+/remote_mobile/.dart_tool/
+/remote_mobile/build/
+/remote_mobile/.flutter-plugins*
+/remote_mobile/ios/Pods/
+/remote_mobile/android/.gradle/

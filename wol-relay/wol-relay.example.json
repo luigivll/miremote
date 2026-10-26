@@ -1,0 +1,21 @@
+{
+  "listen_addr": ":9797",
+  "rate_limit_seconds": 10,
+  "tls_cert": "",
+  "tls_key": "",
+  "devices": [
+    {
+      "id": "pc-salon",
+      "mac": "AA:BB:CC:DD:EE:FF",
+      "broadcast": "192.168.1.255",
+      "port": 9
+    }
+  ],
+  "authorized_mobiles": [
+    {
+      "device_id": "m-xxxxxxxxxxxxxx",
+      "public_key": "BASE64_DE_LA_CLAVE_PUBLICA_ED25519_DEL_MOVIL",
+      "name": "Pixel de Luis"
+    }
+  ]
+}

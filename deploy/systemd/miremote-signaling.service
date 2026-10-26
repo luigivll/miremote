@@ -1,0 +1,35 @@
+[Unit]
+Description=MiRemote servidor de señalización
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Crea un usuario de sistema: useradd -r -s /usr/sbin/nologin miremote
+User=miremote
+Group=miremote
+WorkingDirectory=/var/lib/miremote-signaling
+ExecStart=/usr/local/bin/miremote-signaling
+
+# Configuración por entorno. Rellena los secretos (>=32 / >=16 bytes).
+Environment=MR_LISTEN=:8443
+Environment=MR_DB=/var/lib/miremote-signaling/signaling.json
+Environment=MR_JWT_SECRET=CAMBIA_ESTO_32_BYTES_MINIMO_0123456789
+Environment=MR_TURN_SECRET=CAMBIA_ESTO_igual_que_coturn
+Environment=MR_TURN_URLS=turns:remote.example.com:5349?transport=tcp,turn:remote.example.com:3478?transport=udp
+Environment=MR_ALLOWED_ORIGINS=https://remote.example.com
+# TLS directo (o deja vacío y pon un proxy TLS delante en localhost).
+Environment=MR_TLS_CERT=/etc/letsencrypt/live/remote.example.com/fullchain.pem
+Environment=MR_TLS_KEY=/etc/letsencrypt/live/remote.example.com/privkey.pem
+
+# Endurecimiento.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/miremote-signaling
+PrivateTmp=true
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=MiRemote relevo Wake-on-LAN (solo LAN)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=miremote
+Group=miremote
+ExecStart=/usr/local/bin/miremote-wolrelay -config /etc/miremote/wol-relay.json
+
+# El relevo debe enviar broadcast UDP en la LAN; necesita acceso a la red.
+# NO lo expongas a Internet. Mantén el puerto solo en la interfaz LAN.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
