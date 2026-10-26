@@ -1,0 +1,58 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows-exe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Compilar agente (Windows, sin captura nativa)
+        working-directory: agent
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o ../MiRemoteAgent.exe ./cmd/agent
+      - name: Compilar señalización y relevo (Linux)
+        run: |
+          (cd signaling && go build -o ../miremote-signaling ./cmd/signaling)
+          (cd wol-relay && go build -o ../miremote-wolrelay ./cmd/wolrelay)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiRemote-windows-exe
+          path: |
+            MiRemoteAgent.exe
+            miremote-signaling
+            miremote-wolrelay
+
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: stable
+      - name: Generar andamiaje Android
+        working-directory: remote_mobile
+        run: flutter create --platforms=android --org com.yangvii --project-name remote_mobile .
+      - name: Parchear permisos y minSdk
+        working-directory: remote_mobile
+        run: python3 tool/ci_patch_android.py
+      - name: Dependencias
+        working-directory: remote_mobile
+        run: flutter pub get
+      - name: Compilar APK (release)
+        working-directory: remote_mobile
+        run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiRemote-apk
+          path: remote_mobile/build/app/outputs/flutter-apk/app-release.apk
