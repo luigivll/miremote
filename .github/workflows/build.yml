@@ -38,7 +38,9 @@ jobs:
           java-version: "17"
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.5"
+          # >=3.27 para que el motor tenga SurfaceProducer.Callback.onSurfaceCreated,
+          # que usa flutter_webrtc 0.12.12.
+          flutter-version: "3.32.0"
           channel: stable
       - name: Generar andamiaje Android
         working-directory: remote_mobile
