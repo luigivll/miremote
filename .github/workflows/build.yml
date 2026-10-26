@@ -51,7 +51,16 @@ jobs:
         run: flutter pub get
       - name: Compilar APK (release)
         working-directory: remote_mobile
-        run: flutter build apk --release
+        run: |
+          set -o pipefail
+          if ! flutter build apk --release 2>&1 | tee /tmp/build.log; then
+            echo "===== TAIL ====="
+            tail -n 60 /tmp/build.log
+            grep -iE "error:|exception|FAILURE:|What went wrong|Could not|requires|Unsupported|minSdk|compileSdk|Namespace|AGP|Kotlin|desugar|NDK" /tmp/build.log \
+              | grep -ivE "warning|> 0 error|no issues" | tail -n 10 \
+              | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: MiRemote-apk
