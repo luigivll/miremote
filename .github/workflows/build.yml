@@ -63,7 +63,38 @@ jobs:
               | while IFS= read -r line; do echo "::error::${line}"; done
             exit 1
           fi
+      - name: Renombrar APK
+        run: cp remote_mobile/build/app/outputs/flutter-apk/app-release.apk MiRemote.apk
       - uses: actions/upload-artifact@v4
         with:
           name: MiRemote-apk
-          path: remote_mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: MiRemote.apk
+
+  release:
+    needs: [windows-exe, android-apk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Preparar binarios
+        run: |
+          mkdir -p out
+          cp dist/MiRemote-apk/MiRemote.apk out/ 2>/dev/null || true
+          cp dist/MiRemote-windows-exe/MiRemoteAgent.exe out/ 2>/dev/null || true
+          ls -la out
+      - name: Publicar release "latest"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Última compilación (APK + EXE)
+          body: |
+            Binarios compilados automáticamente desde `main`.
+            - **MiRemote.apk** — cliente móvil Android.
+            - **MiRemoteAgent.exe** — agente de PC (Windows x64, sin captura nativa).
+          prerelease: true
+          files: |
+            out/MiRemote.apk
+            out/MiRemoteAgent.exe
