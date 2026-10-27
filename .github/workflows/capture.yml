@@ -1,13 +1,12 @@
 name: capture-android
 
+# Verifica en un emulador real que el APK instala y arranca, y sube una captura
+# de la pantalla de inicio como artefacto descargable desde la pestaña Actions.
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  android-capture:
+  android-verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +31,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Capturar en emulador
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verificar arranque en emulador
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -45,43 +41,18 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set +e
-            WS="${GITHUB_WORKSPACE:-$(pwd)}"
-            cd "$WS"
-            B="$WS/docs/debug"; mkdir -p "$B"
             PKG=com.yangvii.remote_mobile
-            M="$B/marker.txt"; echo "start $(date -u)" > "$M"
-            timeout 60 adb wait-for-device; echo "device=$?" >> "$M"
-            timeout 180 adb install -r "$WS/MiRemote.apk"; echo "install=$?" >> "$M"
-            timeout 30 adb shell pm grant $PKG android.permission.CAMERA
-            SZ=$(timeout 20 adb shell wm size 2>/dev/null); echo "size=$SZ" >> "$M"
-            W=$(echo "$SZ" | grep -oE "[0-9]+x[0-9]+" | tail -1 | cut -dx -f1); [ -z "$W" ] && W=1080
-            H=$(echo "$SZ" | grep -oE "[0-9]+x[0-9]+" | tail -1 | cut -dx -f2); [ -z "$H" ] && H=1920
-            FABX=$((W-120)); FABY=$((H-180))
-            timeout 60 adb shell am start -W -n $PKG/.MainActivity; echo "amstart=$? res=${W}x${H}" >> "$M"
-            sleep 6
-            timeout 30 adb exec-out screencap -p > /tmp/01.png; echo "home=$(stat -c%s /tmp/01.png 2>/dev/null)" >> "$M"
-            timeout 20 adb shell input tap $FABX $FABY; sleep 4
-            timeout 30 adb exec-out screencap -p > /tmp/02.png; echo "scanner=$(stat -c%s /tmp/02.png 2>/dev/null)" >> "$M"
-            timeout 20 adb shell input keyevent 4; sleep 2
-            timeout 30 adb exec-out screencap -p > /tmp/03.png; echo "home2=$(stat -c%s /tmp/03.png 2>/dev/null)" >> "$M"
-            cp /tmp/01.png "$WS/docs/screenshots/android/01-inicio.png" 2>/dev/null
-            cp /tmp/02.png "$WS/docs/screenshots/android/02-escaner.png" 2>/dev/null
-            cp /tmp/03.png "$WS/docs/screenshots/android/03-inicio-b.png" 2>/dev/null
-            echo "DONE" >> "$M"
-            ls -la "$WS/docs/screenshots/android" >> "$M" 2>&1
-            exit 0
-      - name: Publicar a ci-captures (paso normal)
+            echo "::warning::INSTALL $(adb install -r MiRemote.apk 2>&1 | tr '\n' ' ')"
+            adb logcat -c
+            echo "::warning::AMSTART $(adb shell am start -W -n $PKG/.MainActivity 2>&1 | tr '\n' ' ')"
+            sleep 10
+            adb exec-out screencap -p > android-home.png
+            echo "::warning::HOME bytes=$(stat -c%s android-home.png 2>/dev/null)"
+            if adb logcat -d | grep -q "FATAL EXCEPTION"; then echo "::error::crash al arrancar"; fi
+      - name: Subir captura
         if: always()
-        run: |
-          set +e
-          mkdir -p docs/screenshots/android docs/debug
-          echo "::warning::LS $(ls -la docs/screenshots/android 2>&1 | tr '\n' '|')"
-          echo "::warning::MARKER $(cat docs/debug/marker.txt 2>/dev/null | tr '\n' '|')"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B ci-captures
-          git add -f docs/
-          git commit -m "docs: capturas del APK en emulador Android [skip ci]"
-          echo "::warning::commit rc=$?"
-          git push -f origin ci-captures
-          echo "::warning::push rc=$?"
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-home-screenshot
+          path: android-home.png
+          if-no-files-found: ignore

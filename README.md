@@ -8,6 +8,18 @@ botón de Detener).
 Stack: **Flutter** (móvil) · **Go + Pion WebRTC** (PC y servidores) ·
 **C++ DXGI + Media Foundation** (captura/codificación Windows) · **coturn** (TURN).
 
+## Capturas y vídeos
+
+Interfaz **real** del agente de PC, con una sesión WebRTC en vivo:
+
+![Demo del PC](docs/video/pc_demo.gif)
+
+Cliente móvil:
+
+![Demo del móvil](docs/video/movil_preview.gif)
+
+Galería completa con todas las capturas y los vídeos en: **[docs/GALERIA.md](docs/GALERIA.md)**.
+
 ## Componentes
 
 ```
