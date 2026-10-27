@@ -46,6 +46,18 @@ jobs:
           script: |
             set +e
             WS="${GITHUB_WORKSPACE:-$(pwd)}"
+            # PRUEBA MÍNIMA: ¿funciona git push desde aquí? (sin redirección)
+            cd "$WS"
+            echo "ISREPO: $(git rev-parse --is-inside-work-tree 2>&1)"
+            mkdir -p docs/debug
+            echo "gittest $(date -u)" > docs/debug/gittest.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -B ci-captures 2>&1
+            git add -f docs/debug/gittest.txt 2>&1
+            git commit -m "gittest [skip ci]" 2>&1
+            git push -f "https://x-access-token:${GH_TOKEN}@github.com/luigivll/miremote.git" ci-captures 2>&1
+            echo "GITTEST push rc=$?"
             OUT="$WS/docs"
             mkdir -p "$OUT/screenshots/android" "$OUT/video" "$OUT/debug"
             LOG="$OUT/debug/capture.log"
