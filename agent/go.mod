@@ -12,6 +12,7 @@ replace golang.org/x/sys => ./third_party/x-sys
 
 require (
 	github.com/coder/websocket v1.8.15
+	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
 	github.com/pion/interceptor v0.1.37
 	github.com/pion/rtcp v1.2.15
 	github.com/pion/webrtc/v4 v4.0.7
@@ -20,6 +21,7 @@ require (
 
 require (
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.0.4 // indirect
 	github.com/pion/ice/v4 v4.0.3 // indirect

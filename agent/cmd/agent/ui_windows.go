@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"syscall"
 	"unsafe"
+
+	webview2 "github.com/jchv/go-webview2"
 )
 
 var (
@@ -105,11 +107,43 @@ func platformFatal(msg string) {
 	pMessageBox.Call(0, uintptr(unsafe.Pointer(t)), uintptr(unsafe.Pointer(title)), cMBIcon)
 }
 
-// platformUI abre la ventana de app y entra en el bucle de bandeja.
+// platformUI abre la interfaz. Primero intenta una ventana NATIVA (WebView2),
+// que es una ventana de aplicación de verdad, sin navegador. Si WebView2 no
+// está disponible, recurre a abrir el navegador en modo app + icono de bandeja.
 func platformUI(url string) {
+	if runNativeWindow(url) {
+		return
+	}
 	trayURL = url
 	openBrowser(url)
 	runTray()
+}
+
+// runNativeWindow crea una ventana nativa con WebView2 que carga la interfaz.
+// Devuelve false si WebView2 no está disponible (para usar el respaldo).
+func runNativeWindow(url string) (ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+		}
+	}()
+	w := webview2.NewWithOptions(webview2.WebViewOptions{
+		Debug:     false,
+		AutoFocus: true,
+		WindowOptions: webview2.WindowOptions{
+			Title:  "MiRemote — Agente de PC",
+			Width:  820,
+			Height: 960,
+			Center: true,
+		},
+	})
+	if w == nil {
+		return false
+	}
+	defer w.Destroy()
+	w.Navigate(url)
+	w.Run() // bloquea hasta que se cierra la ventana
+	return true
 }
 
 func runTray() {
