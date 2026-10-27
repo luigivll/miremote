@@ -38,32 +38,38 @@ jobs:
           api-level: 30
           arch: x86_64
           target: google_apis
-          profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
             set +e
+            echo "::warning::START"
             adb wait-for-device
             PKG=com.yangvii.remote_mobile
-            adb install -r MiRemote.apk
-            adb shell pm grant $PKG android.permission.CAMERA
-            # Grabar ~12s mientras se lanza y se navega
-            adb shell screenrecord --time-limit 12 --size 540x1170 /sdcard/demo.mp4 &
-            adb shell am start -n $PKG/.MainActivity
-            sleep 5
+            echo "::warning::INSTALL $(adb install -r MiRemote.apk 2>&1 | tr '\n' ' ')"
+            adb shell pm grant $PKG android.permission.CAMERA 2>&1
+            SZ=$(adb shell wm size 2>&1); echo "::warning::SIZE $SZ"
+            W=$(echo "$SZ" | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f1)
+            H=$(echo "$SZ" | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f2)
+            [ -z "$W" ] && W=1080; [ -z "$H" ] && H=1920
+            FABX=$((W-120)); FABY=$((H-170))
+            echo "::warning::AMSTART $(adb shell am start -W -n $PKG/.MainActivity 2>&1 | tr '\n' ' ')"
+            sleep 6
             adb exec-out screencap -p > android_01_home.png
-            # Abrir el escáner (FAB "Emparejar", abajo-derecha)
-            adb shell input tap 930 2250
+            echo "::warning::HOME bytes=$(stat -c%s android_01_home.png 2>/dev/null)"
+            # Grabar un clip corto mientras se abre el escáner
+            ( adb shell screenrecord --time-limit 9 --bit-rate 4000000 /sdcard/demo.mp4 ) &
+            REC=$!
+            sleep 1
+            adb shell input tap $FABX $FABY
             sleep 4
             adb exec-out screencap -p > android_02_scanner.png
-            # Volver
+            echo "::warning::SCANNER bytes=$(stat -c%s android_02_scanner.png 2>/dev/null)"
             adb shell input keyevent 4
-            sleep 1
-            adb exec-out screencap -p > android_03_home2.png
-            # Esperar a que termine el screenrecord y traerlo
-            sleep 6
-            adb pull /sdcard/demo.mp4 android_demo.mp4
-            ls -la android_*.png android_demo.mp4 | while IFS= read -r l; do echo "::warning::$l"; done
+            sleep 3
+            wait $REC 2>/dev/null
+            adb pull /sdcard/demo.mp4 android_demo.mp4 2>&1
+            echo "::warning::VIDEO bytes=$(stat -c%s android_demo.mp4 2>/dev/null)"
+            exit 0
       - name: Comprobar capturas
         run: |
           for f in android_01_home.png android_02_scanner.png android_demo.mp4; do
