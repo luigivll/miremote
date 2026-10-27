@@ -34,6 +34,8 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Capturar en emulador
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -76,21 +78,15 @@ jobs:
             echo "video bytes: $(stat -c%s "$OUT/video/android_demo.mp4" 2>/dev/null)"
             echo "== DONE =="
             ls -la "$OUT/screenshots/android" "$OUT/video"
+            # Publicar DESDE AQUÍ (el FS del emulador no persiste a pasos
+            # siguientes): commit + push con token explícito a la rama ci-captures.
+            echo "run $(date -u)" > "$OUT/debug/ping.txt"
+            cd "$WS"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -B ci-captures
+            git add -f docs/
+            git commit -m "docs: capturas/log del APK en emulador Android [skip ci]"
+            git push -f "https://x-access-token:${GH_TOKEN}@github.com/luigivll/miremote.git" ci-captures
+            echo "push rc=$?"
             exit 0
-      - name: Publicar capturas
-        if: always()
-        run: |
-          set +e
-          echo "run $(date -u)" > docs/debug/ping.txt
-          ls -la docs/screenshots/android docs/video 2>&1 | sed 's/^/::warning::LS /'
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/
-          git commit -m "docs: capturas/log del APK en emulador Android [skip ci]"
-          echo "::warning::commit rc=$?"
-          git fetch origin main
-          git push origin HEAD:main
-          PRC=$?
-          echo "::warning::push rc=$PRC"
-          if [ $PRC -ne 0 ]; then git push origin HEAD:main 2>&1 | sed 's/^/::error::PUSH /'; fi
-          exit 0
