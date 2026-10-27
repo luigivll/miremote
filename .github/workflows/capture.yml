@@ -50,31 +50,31 @@ jobs:
             OUT="$WS/docs"; mkdir -p "$OUT/screenshots/android" "$OUT/video" "$OUT/debug"
             PKG=com.yangvii.remote_mobile
             REMOTE="https://x-access-token:${GH_TOKEN}@github.com/luigivll/miremote.git"
+            BR="ci-run-${GITHUB_RUN_ID}"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git checkout -B ci-captures
-            # pushmark: registra la fase y sube docs/ (así cada captura se publica
-            # en cuanto existe, aunque un paso posterior se cuelgue).
-            pushmark() { echo "$1 $(date -u)" >> "$OUT/debug/marker.txt"; git add -f docs/ >/dev/null 2>&1; git commit -q -m "m:$1" >/dev/null 2>&1; git push -qf "$REMOTE" ci-captures >/dev/null 2>&1; }
-            pushmark "phase0-start"
-            timeout 60 adb wait-for-device; pushmark "phase1-device"
-            timeout 180 adb install -r "$WS/MiRemote.apk"; pushmark "phase2-install"
+            git checkout -B "$BR"
+            M="$OUT/debug/marker.txt"
+            echo "run $GITHUB_RUN_ID $(date -u)" > "$M"
+            timeout 60 adb wait-for-device; echo "device rc=$?" >> "$M"
+            timeout 180 adb install -r "$WS/MiRemote.apk"; echo "install rc=$?" >> "$M"
             timeout 30 adb shell pm grant $PKG android.permission.CAMERA
-            SZ=$(timeout 20 adb shell wm size 2>/dev/null)
+            SZ=$(timeout 20 adb shell wm size 2>/dev/null); echo "size=$SZ" >> "$M"
             W=$(echo "$SZ" | grep -oE "[0-9]+x[0-9]+" | tail -1 | cut -dx -f1); [ -z "$W" ] && W=1080
             H=$(echo "$SZ" | grep -oE "[0-9]+x[0-9]+" | tail -1 | cut -dx -f2); [ -z "$H" ] && H=1920
             FABX=$((W-120)); FABY=$((H-180))
-            echo "size=$SZ res=${W}x${H}" >> "$OUT/debug/marker.txt"
-            timeout 60 adb shell am start -W -n $PKG/.MainActivity; pushmark "phase3-amstart-${W}x${H}"
+            timeout 60 adb shell am start -W -n $PKG/.MainActivity; echo "amstart rc=$? res=${W}x${H}" >> "$M"
             sleep 6
             timeout 30 adb exec-out screencap -p > "$OUT/screenshots/android/01-inicio.png"
-            pushmark "phase4-home-$(stat -c%s "$OUT/screenshots/android/01-inicio.png" 2>/dev/null)"
-            timeout 20 adb shell input tap $FABX $FABY
-            sleep 4
+            echo "home bytes=$(stat -c%s "$OUT/screenshots/android/01-inicio.png" 2>/dev/null)" >> "$M"
+            timeout 20 adb shell input tap $FABX $FABY; sleep 4
             timeout 30 adb exec-out screencap -p > "$OUT/screenshots/android/02-escaner.png"
-            pushmark "phase5-scanner-$(stat -c%s "$OUT/screenshots/android/02-escaner.png" 2>/dev/null)"
-            timeout 20 adb shell input keyevent 4
-            sleep 2
+            echo "scanner bytes=$(stat -c%s "$OUT/screenshots/android/02-escaner.png" 2>/dev/null)" >> "$M"
+            timeout 20 adb shell input keyevent 4; sleep 2
             timeout 30 adb exec-out screencap -p > "$OUT/screenshots/android/03-inicio-b.png"
-            pushmark "phase6-done"
+            echo "DONE" >> "$M"
+            # Único push a una rama NUEVA (crear funciona con el token de Actions).
+            git add -f docs/
+            git commit -q -m "docs: capturas APK emulador ${GITHUB_RUN_ID} [skip ci]"
+            git push -q "$REMOTE" "$BR"
             exit 0
