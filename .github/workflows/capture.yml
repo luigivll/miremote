@@ -41,10 +41,9 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set +e
-            PKG=com.yangvii.remote_mobile
             echo "::warning::INSTALL $(adb install -r MiRemote.apk 2>&1 | tr '\n' ' ')"
             adb logcat -c
-            echo "::warning::AMSTART $(adb shell am start -W -n $PKG/.MainActivity 2>&1 | tr '\n' ' ')"
+            echo "::warning::AMSTART $(adb shell am start -W -n com.yangvii.remote_mobile/.MainActivity 2>&1 | tr '\n' ' ')"
             sleep 10
             adb exec-out screencap -p > android-home.png
             echo "::warning::HOME bytes=$(stat -c%s android-home.png 2>/dev/null)"
