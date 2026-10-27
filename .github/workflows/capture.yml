@@ -75,18 +75,21 @@ jobs:
             adb pull /sdcard/demo.mp4 "$OUT/android_demo.mp4"
             echo "video bytes: $(stat -c%s "$OUT/android_demo.mp4" 2>/dev/null)"
             echo "== DONE =="
+            echo "== ls OUT =="; ls -la "$OUT"
+            # Commit DENTRO del script, donde los ficheros existen con certeza.
+            cd "$WS"
+            mkdir -p docs/screenshots/android docs/video docs/debug
+            cp "$OUT/android_01_home.png"    docs/screenshots/android/01-inicio.png 2>/dev/null
+            cp "$OUT/android_02_scanner.png" docs/screenshots/android/02-escaner.png 2>/dev/null
+            cp "$OUT/android_demo.mp4"        docs/video/android_demo.mp4 2>/dev/null
+            cp "$OUT/capture.log"             docs/debug/capture.log 2>/dev/null
+            echo "run $(date -u)" > docs/debug/ping.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add docs/
+            git commit -m "docs: capturas/log del APK en emulador Android [skip ci]"
+            git push 2>&1 | tee -a "$OUT/capture.log"
+            # Re-commit del log final (con el resultado del push), best-effort
+            cp "$OUT/capture.log" docs/debug/capture.log 2>/dev/null
+            git add docs/debug/capture.log && git commit -m "docs: log final [skip ci]" && git push
             exit 0
-      - name: Commit de capturas y log al repo
-        if: always()
-        run: |
-          OUT=/tmp/caps
-          mkdir -p docs/screenshots/android docs/video docs/debug
-          [ -s "$OUT/android_01_home.png" ]    && cp "$OUT/android_01_home.png"    docs/screenshots/android/01-inicio.png
-          [ -s "$OUT/android_02_scanner.png" ] && cp "$OUT/android_02_scanner.png" docs/screenshots/android/02-escaner.png
-          [ -s "$OUT/android_demo.mp4" ]       && cp "$OUT/android_demo.mp4"        docs/video/android_demo.mp4
-          [ -s "$OUT/capture.log" ]            && cp "$OUT/capture.log"             docs/debug/capture.log
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/ || true
-          git commit -m "docs: capturas/log del APK en emulador Android [skip ci]" || { echo "sin cambios"; exit 0; }
-          git push
