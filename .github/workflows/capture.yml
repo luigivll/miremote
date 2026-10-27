@@ -51,35 +51,41 @@ jobs:
             mkdir -p "$OUT/screenshots/android" "$OUT/video" "$OUT/debug"
             LOG="$OUT/debug/capture.log"
             PKG=com.yangvii.remote_mobile
-            # Bloque de captura: cada adb con timeout, sin wait (evita cuelgues).
-            {
+            capture() {
               echo "== START == WS=$WS"
-              timeout 60 adb wait-for-device
-              echo "== install =="; timeout 150 adb install -r "$WS/MiRemote.apk"
-              echo "== grant =="; timeout 30 adb shell pm grant $PKG android.permission.CAMERA
-              SZ=$(timeout 20 adb shell wm size 2>/dev/null); echo "== size == $SZ"
-              W=$(echo "$SZ" | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f1); [ -z "$W" ] && W=1080
-              H=$(echo "$SZ" | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f2); [ -z "$H" ] && H=1920
+              adb wait-for-device
+              echo "== install =="; adb install -r "$WS/MiRemote.apk"
+              echo "== grant =="; adb shell pm grant $PKG android.permission.CAMERA
+              SZ=$(adb shell wm size 2>/dev/null); echo "== size == $SZ"
+              W=$(echo "$SZ" | grep -oE "[0-9]+x[0-9]+" | tail -1 | cut -dx -f1); [ -z "$W" ] && W=1080
+              H=$(echo "$SZ" | grep -oE "[0-9]+x[0-9]+" | tail -1 | cut -dx -f2); [ -z "$H" ] && H=1920
               FABX=$((W-120)); FABY=$((H-180))
               echo "== res ${W}x${H} fab ${FABX},${FABY} =="
-              echo "== am start =="; timeout 60 adb shell am start -W -n $PKG/.MainActivity
+              echo "== am start =="; adb shell am start -W -n $PKG/.MainActivity
               sleep 6
-              timeout 40 adb exec-out screencap -p > "$OUT/screenshots/android/01-inicio.png"
+              adb exec-out screencap -p > "$OUT/screenshots/android/01-inicio.png"
               echo "home bytes: $(stat -c%s "$OUT/screenshots/android/01-inicio.png" 2>/dev/null)"
-              timeout 40 adb shell screenrecord --time-limit 9 /sdcard/demo.mp4 &
+              timeout 12 adb shell screenrecord --time-limit 9 /sdcard/demo.mp4 &
               sleep 1
-              echo "== tap FAB =="; timeout 20 adb shell input tap $FABX $FABY
+              echo "== tap FAB =="; adb shell input tap $FABX $FABY
               sleep 4
-              timeout 40 adb exec-out screencap -p > "$OUT/screenshots/android/02-escaner.png"
+              adb exec-out screencap -p > "$OUT/screenshots/android/02-escaner.png"
               echo "scanner bytes: $(stat -c%s "$OUT/screenshots/android/02-escaner.png" 2>/dev/null)"
-              timeout 20 adb shell input keyevent 4
-              sleep 7
-              timeout 40 adb pull /sdcard/demo.mp4 "$OUT/video/android_demo.mp4"
+              adb shell input keyevent 4
+              sleep 8
+              adb pull /sdcard/demo.mp4 "$OUT/video/android_demo.mp4"
               echo "video bytes: $(stat -c%s "$OUT/video/android_demo.mp4" 2>/dev/null)"
               echo "== DONE =="
               ls -la "$OUT/screenshots/android" "$OUT/video"
-            } > "$LOG" 2>&1
-            # Publicar (git funciona en este contexto, verificado).
+            }
+            # Watchdog: la captura no puede pasar de 300s; luego se publica igual.
+            ( capture ) > "$LOG" 2>&1 &
+            CP=$!
+            ( sleep 300; kill -9 $CP 2>/dev/null ) &
+            WD=$!
+            wait $CP 2>/dev/null
+            kill $WD 2>/dev/null
+            echo "captura terminada, publicando..."
             echo "run $(date -u)" > "$OUT/debug/ping.txt"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -87,4 +93,5 @@ jobs:
             git add -f docs/
             git commit -m "docs: capturas/log del APK en emulador Android [skip ci]"
             git push -f "https://x-access-token:${GH_TOKEN}@github.com/luigivll/miremote.git" ci-captures
+            echo "push rc=$?"
             exit 0
