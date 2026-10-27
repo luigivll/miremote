@@ -64,14 +64,24 @@ jobs:
             timeout 30 adb exec-out screencap -p > /tmp/02.png; echo "scanner=$(stat -c%s /tmp/02.png 2>/dev/null)" >> "$M"
             timeout 20 adb shell input keyevent 4; sleep 2
             timeout 30 adb exec-out screencap -p > /tmp/03.png; echo "home2=$(stat -c%s /tmp/03.png 2>/dev/null)" >> "$M"
-            base64 /tmp/01.png > "$B/01-inicio.png.b64" 2>/dev/null
-            base64 /tmp/02.png > "$B/02-escaner.png.b64" 2>/dev/null
-            base64 /tmp/03.png > "$B/03-inicio-b.png.b64" 2>/dev/null
+            cp /tmp/01.png "$WS/docs/screenshots/android/01-inicio.png" 2>/dev/null
+            cp /tmp/02.png "$WS/docs/screenshots/android/02-escaner.png" 2>/dev/null
+            cp /tmp/03.png "$WS/docs/screenshots/android/03-inicio-b.png" 2>/dev/null
             echo "DONE" >> "$M"
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git checkout -B ci-captures
-            git add -f "$B"
-            git commit -m "capturas b64 emulador [skip ci]"
-            git push -f "https://x-access-token:${GH_TOKEN}@github.com/luigivll/miremote.git" ci-captures
+            ls -la "$WS/docs/screenshots/android" >> "$M" 2>&1
             exit 0
+      - name: Publicar a ci-captures (paso normal)
+        if: always()
+        run: |
+          set +e
+          mkdir -p docs/screenshots/android docs/debug
+          echo "::warning::LS $(ls -la docs/screenshots/android 2>&1 | tr '\n' '|')"
+          echo "::warning::MARKER $(cat docs/debug/marker.txt 2>/dev/null | tr '\n' '|')"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B ci-captures
+          git add -f docs/
+          git commit -m "docs: capturas del APK en emulador Android [skip ci]"
+          echo "::warning::commit rc=$?"
+          git push -f origin ci-captures
+          echo "::warning::push rc=$?"
