@@ -1,0 +1,29 @@
+# Despliegue del servidor de señalización en Fly.io (siempre activo).
+# Cambia "app" por un nombre único tuyo si "fly launch" lo pide.
+app = "miremote-signaling"
+primary_region = "mad"   # Madrid
+
+[build]
+
+[env]
+  # Persistir la base de datos en el volumen montado (ver [mounts]).
+  MR_DB = "/data/miremote-signaling.db"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # SIEMPRE ACTIVO: no apagar la máquina por inactividad.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+# Volumen persistente para los emparejamientos y el secreto JWT.
+# Créalo una vez con:  fly volumes create miremote_data --region mad --size 1
+[mounts]
+  source = "miremote_data"
+  destination = "/data"

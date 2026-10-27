@@ -1,10 +1,11 @@
 // Package config carga la configuración del servidor de señalización desde
-// variables de entorno. No hay valores secretos por defecto: el servidor se
-// niega a arrancar si faltan.
+// variables de entorno. Arranca sin configuración: si no se da MR_JWT_SECRET,
+// genera y persiste uno; TURN es opcional (sin él se usa solo STUN).
 package config
 
 import (
-	"errors"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -50,8 +51,18 @@ func env(key, def string) string {
 }
 
 func Load() (*Config, error) {
+	// Puerto: MR_LISTEN tiene prioridad; si no, se usa $PORT (lo fija el hosting
+	// en la nube, p.ej. Cloud Run); si no, :8443.
+	listen := os.Getenv("MR_LISTEN")
+	if listen == "" {
+		if p := os.Getenv("PORT"); p != "" {
+			listen = ":" + p
+		} else {
+			listen = ":8443"
+		}
+	}
 	c := &Config{
-		ListenAddr:    env("MR_LISTEN", ":8443"),
+		ListenAddr:    listen,
 		TLSCert:       os.Getenv("MR_TLS_CERT"),
 		TLSKey:        os.Getenv("MR_TLS_KEY"),
 		DBPath:        env("MR_DB", "miremote-signaling.db"),
@@ -61,29 +72,49 @@ func Load() (*Config, error) {
 		NonceTTL:      mustDur("MR_NONCE_TTL", 30*time.Second),
 	}
 
+	// Secreto JWT: si no se da, se genera y persiste junto a la BD, de modo que
+	// el servidor arranca sin configuración y conserva el secreto entre reinicios.
 	js := os.Getenv("MR_JWT_SECRET")
-	if len(js) < 32 {
-		return nil, errors.New("MR_JWT_SECRET requerido y de al menos 32 bytes")
+	if len(js) >= 32 {
+		c.JWTSecret = []byte(js)
+	} else {
+		secret, err := loadOrCreateSecret(c.DBPath + ".jwt")
+		if err != nil {
+			return nil, fmt.Errorf("no se pudo preparar el secreto JWT: %w", err)
+		}
+		c.JWTSecret = secret
 	}
-	c.JWTSecret = []byte(js)
 
+	// TURN opcional. Sin TURN, se usa solo STUN (funciona en muchas redes
+	// domésticas; detrás de NAT simétrico haría falta un TURN, ver deploy/).
 	ts := os.Getenv("MR_TURN_SECRET")
-	if len(ts) < 16 {
-		return nil, errors.New("MR_TURN_SECRET requerido y de al menos 16 bytes")
+	if len(ts) >= 16 {
+		c.TURNSecret = []byte(ts)
 	}
-	c.TURNSecret = []byte(ts)
-
-	turnUrls := os.Getenv("MR_TURN_URLS")
-	if turnUrls == "" {
-		return nil, errors.New("MR_TURN_URLS requerido (CSV de urls turn:/turns:)")
+	if turnUrls := os.Getenv("MR_TURN_URLS"); turnUrls != "" {
+		c.TURNUrls = splitCSV(turnUrls)
 	}
-	c.TURNUrls = splitCSV(turnUrls)
 
 	if o := os.Getenv("MR_ALLOWED_ORIGINS"); o != "" {
 		c.AllowedOrigins = splitCSV(o)
 	}
 
 	return c, nil
+}
+
+// loadOrCreateSecret lee un secreto de 32 bytes del fichero dado o lo crea.
+func loadOrCreateSecret(path string) ([]byte, error) {
+	if b, err := os.ReadFile(path); err == nil && len(b) >= 32 {
+		return b, nil
+	}
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, err
+	}
+	// Persistir en base64 legible; ignorar error de escritura (efímero si falla).
+	enc := []byte(base64.StdEncoding.EncodeToString(buf))
+	_ = os.WriteFile(path, enc, 0o600)
+	return enc, nil
 }
 
 func splitCSV(s string) []string {

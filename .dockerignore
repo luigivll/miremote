@@ -1,0 +1,12 @@
+agent/
+remote_mobile/
+wol-relay/
+docs/
+deploy/
+preview/
+shared/
+.github/
+*.md
+*.exe
+*.apk
+*.zip

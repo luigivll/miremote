@@ -1,0 +1,12 @@
+# Despliegue del servidor de señalización en Render.com (plan gratuito).
+# Render construye desde este repo con el Dockerfile. El plan free se duerme
+# tras ~15 min de inactividad (la primera conexión lo despierta en ~1 min).
+services:
+  - type: web
+    name: miremote-signaling
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
+    healthCheckPath: /healthz
+    autoDeploy: true

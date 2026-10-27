@@ -125,15 +125,19 @@ func (a *Agent) refreshICE(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.mu.Lock()
-	a.iceSrv = []pion.ICEServer{
+	ice := []pion.ICEServer{
 		{URLs: []string{"stun:stun.l.google.com:19302"}},
-		{
+	}
+	// Solo añadir TURN si el servidor lo tiene configurado (URLs no vacías).
+	if len(creds.URLs) > 0 {
+		ice = append(ice, pion.ICEServer{
 			URLs:       creds.URLs,
 			Username:   creds.Username,
 			Credential: creds.Credential,
-		},
+		})
 	}
+	a.mu.Lock()
+	a.iceSrv = ice
 	a.mu.Unlock()
 	return nil
 }
