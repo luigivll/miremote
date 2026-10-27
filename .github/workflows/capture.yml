@@ -1,0 +1,84 @@
+name: capture-android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android-capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.0"
+          channel: stable
+      - name: Generar andamiaje y APK
+        working-directory: remote_mobile
+        run: |
+          flutter create --platforms=android --org com.yangvii --project-name remote_mobile .
+          python3 tool/ci_patch_android.py
+          flutter pub get
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ../MiRemote.apk
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capturar en emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set +e
+            adb wait-for-device
+            PKG=com.yangvii.remote_mobile
+            adb install -r MiRemote.apk
+            adb shell pm grant $PKG android.permission.CAMERA
+            # Grabar ~12s mientras se lanza y se navega
+            adb shell screenrecord --time-limit 12 --size 540x1170 /sdcard/demo.mp4 &
+            adb shell am start -n $PKG/.MainActivity
+            sleep 5
+            adb exec-out screencap -p > android_01_home.png
+            # Abrir el escáner (FAB "Emparejar", abajo-derecha)
+            adb shell input tap 930 2250
+            sleep 4
+            adb exec-out screencap -p > android_02_scanner.png
+            # Volver
+            adb shell input keyevent 4
+            sleep 1
+            adb exec-out screencap -p > android_03_home2.png
+            # Esperar a que termine el screenrecord y traerlo
+            sleep 6
+            adb pull /sdcard/demo.mp4 android_demo.mp4
+            ls -la android_*.png android_demo.mp4 | while IFS= read -r l; do echo "::warning::$l"; done
+      - name: Comprobar capturas
+        run: |
+          for f in android_01_home.png android_02_scanner.png android_demo.mp4; do
+            if [ ! -s "$f" ]; then echo "::error::falta $f"; exit 1; fi
+          done
+          echo "capturas OK"
+      - name: Commit de capturas al repo
+        run: |
+          mkdir -p docs/screenshots/android docs/video
+          cp android_01_home.png     docs/screenshots/android/01-inicio.png
+          cp android_02_scanner.png  docs/screenshots/android/02-escaner.png
+          cp android_03_home2.png    docs/screenshots/android/03-inicio.png 2>/dev/null || true
+          cp android_demo.mp4        docs/video/android_demo.mp4
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/android docs/video/android_demo.mp4
+          git commit -m "docs: capturas y vídeo del APK en emulador Android [skip ci]" || { echo "sin cambios"; exit 0; }
+          git push
