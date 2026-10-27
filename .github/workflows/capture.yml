@@ -77,13 +77,20 @@ jobs:
             echo "== DONE =="
             ls -la "$OUT/screenshots/android" "$OUT/video"
             exit 0
-      - name: Publicar capturas en rama ci-captures
+      - name: Publicar capturas
         if: always()
         run: |
+          set +e
           echo "run $(date -u)" > docs/debug/ping.txt
+          ls -la docs/screenshots/android docs/video 2>&1 | sed 's/^/::warning::LS /'
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B ci-captures
           git add -f docs/
-          git commit -m "docs: capturas/log del APK en emulador Android [skip ci]" || echo "nada que commitear"
-          git push -f origin ci-captures
+          git commit -m "docs: capturas/log del APK en emulador Android [skip ci]"
+          echo "::warning::commit rc=$?"
+          git fetch origin main
+          git push origin HEAD:main
+          PRC=$?
+          echo "::warning::push rc=$PRC"
+          if [ $PRC -ne 0 ]; then git push origin HEAD:main 2>&1 | sed 's/^/::error::PUSH /'; fi
+          exit 0
