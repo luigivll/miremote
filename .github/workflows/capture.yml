@@ -73,8 +73,14 @@ jobs:
             timeout 20 adb shell input keyevent 4; sleep 2
             timeout 30 adb exec-out screencap -p > "$OUT/screenshots/android/03-inicio-b.png"
             echo "DONE" >> "$M"
-            # Único push a una rama NUEVA (crear funciona con el token de Actions).
-            git add -f docs/
-            git commit -q -m "docs: capturas APK emulador ${GITHUB_RUN_ID} [skip ci]"
-            git push -q "$REMOTE" "$BR"
+            # Codificar las capturas en base64 (texto) — el push de texto funciona
+            # en este contexto, el binario no.
+            B="$OUT/debug"
+            for f in 01-inicio 02-escaner 03-inicio-b; do
+              base64 "$OUT/screenshots/android/$f.png" > "$B/$f.png.b64" 2>/dev/null
+              echo "$f.b64 bytes=$(stat -c%s "$B/$f.png.b64" 2>/dev/null)" >> "$M"
+            done
+            git add -f "$B"
+            git commit -q -m "docs: capturas(b64)+marker APK emulador [skip ci]"
+            git push -qf "$REMOTE" ci-captures
             exit 0
